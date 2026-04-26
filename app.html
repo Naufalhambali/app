@@ -1234,20 +1234,41 @@ function loadLocal() {
 // ==========================================
 async function callScript(action, data = {}) {
   if (SCRIPT_URL === 'YOUR_SCRIPT_URL_HERE') {
-    // Demo mode — use local data
+    // Demo mode — gunakan data lokal
     return demoAction(action, data);
   }
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, ...data })
-    });
-    return await res.json();
-  } catch (e) {
-    console.error(e);
-    return { success: false, error: 'Koneksi gagal' };
-  }
+  // Google Apps Script TIDAK mendukung CORS untuk POST dari browser.
+  // Solusi: kirim via GET dengan payload di-encode sebagai query param,
+  // lalu Apps Script membacanya dari e.parameter.payload
+  return new Promise((resolve) => {
+    const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    const payload = encodeURIComponent(JSON.stringify({ action, ...data }));
+    const url = SCRIPT_URL + '?callback=' + cbName + '&payload=' + payload;
+
+    window[cbName] = function(result) {
+      delete window[cbName];
+      document.head.removeChild(script);
+      resolve(result);
+    };
+
+    const script = document.createElement('script');
+    script.src = url;
+    script.onerror = function() {
+      delete window[cbName];
+      document.head.removeChild(script);
+      resolve({ success: false, error: 'Koneksi gagal. Cek URL Apps Script & pastikan akses "Anyone".' });
+    };
+    // Timeout 15 detik
+    const timer = setTimeout(() => {
+      if (window[cbName]) {
+        delete window[cbName];
+        try { document.head.removeChild(script); } catch(e) {}
+        resolve({ success: false, error: 'Timeout — server tidak merespon.' });
+      }
+    }, 15000);
+    script.onload = () => clearTimeout(timer);
+    document.head.appendChild(script);
+  });
 }
 
 // Demo mode handler
