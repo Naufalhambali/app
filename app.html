@@ -1239,6 +1239,7 @@ const MONTHS_FULL = ['Januari','Februari','Maret','April','Mei','Juni','Juli','A
 // LOCAL STORAGE (fallback jika offline)
 // ==========================================
 function saveLocal() {
+  // kelasList & kamarList juga ikut disimpan sebagai fallback offline
   localStorage.setItem('df_state', JSON.stringify({
     loggedIn: state.loggedIn,
     user: state.user,
@@ -1323,7 +1324,11 @@ function demoAction(action, data) {
       return { success: false, error: 'Username atau password salah' };
     case 'getCatering': return { success: true, data: state.cateringData };
     case 'getSpp': return { success: true, data: state.sppData };
-    case 'getSettings': return { success: true, data: state.settings };
+    case 'getSettings': return { success: true, data: {
+      ...state.settings,
+      kelasList: kelasList,
+      kamarList: kamarList
+    } };
     case 'saveCatering':
       if (data.mode === 'add') {
         const newItem = { ...data.item, id: Date.now().toString() };
@@ -1350,6 +1355,9 @@ function demoAction(action, data) {
       saveLocal(); return { success: true };
     case 'saveSettings':
       state.settings = { ...state.settings, ...data.settings };
+      // Sync list ke variabel global langsung
+      if (data.settings.kelasList) kelasList = data.settings.kelasList;
+      if (data.settings.kamarList) kamarList = data.settings.kamarList;
       saveLocal(); return { success: true };
     case 'changePassword':
       // Demo: just accept
@@ -1506,7 +1514,13 @@ async function loadAllData() {
   ]);
   if (cat.success) state.cateringData = cat.data;
   if (spp.success) state.sppData = spp.data;
-  if (settings.success) state.settings = { ...state.settings, ...settings.data };
+  if (settings.success) {
+    const sd = settings.data;
+    state.settings = { ...state.settings, ...sd };
+    // Restore kelasList & kamarList dari Spreadsheet (sumber kebenaran)
+    if (sd.kelasList && sd.kelasList.length) kelasList = sd.kelasList;
+    if (sd.kamarList && sd.kamarList.length) kamarList = sd.kamarList;
+  }
   updateDashboard();
   renderCateringTable();
   renderSppTable();
@@ -2040,16 +2054,23 @@ function renderKelasContent() {
     </div>`;
 }
 
-function addKelas() {
+async function addKelas() {
   const val = document.getElementById('input-kelas-baru')?.value?.trim();
   if (!val) return;
-  if (!kelasList.includes(val)) { kelasList.push(val); saveLocal(); }
+  const formatted = val.toUpperCase();
+  if (!kelasList.includes(formatted)) {
+    kelasList.push(formatted);
+    await callScript('saveSettings', { settings: { kelasList: kelasList } });
+    saveLocal();
+  }
+  document.getElementById('input-kelas-baru').value = '';
   renderKelasContent();
-  showToast('Kelas ' + val + ' ditambahkan', 'success');
+  showToast('Kelas ' + formatted + ' ditambahkan', 'success');
 }
 
-function deleteKelas(idx) {
+async function deleteKelas(idx) {
   kelasList.splice(idx, 1);
+  await callScript('saveSettings', { settings: { kelasList: kelasList } });
   saveLocal();
   renderKelasContent();
   showToast('Kelas dihapus', 'success');
@@ -2080,16 +2101,22 @@ function renderKamarContent() {
     </div>`;
 }
 
-function addKamar() {
+async function addKamar() {
   const val = document.getElementById('input-kamar-baru')?.value?.trim();
   if (!val) return;
-  if (!kamarList.includes(val)) { kamarList.push(val); saveLocal(); }
+  if (!kamarList.includes(val)) {
+    kamarList.push(val);
+    await callScript('saveSettings', { settings: { kamarList: kamarList } });
+    saveLocal();
+  }
+  document.getElementById('input-kamar-baru').value = '';
   renderKamarContent();
   showToast('Kamar ' + val + ' ditambahkan', 'success');
 }
 
-function deleteKamar(idx) {
+async function deleteKamar(idx) {
   kamarList.splice(idx, 1);
+  await callScript('saveSettings', { settings: { kamarList: kamarList } });
   saveLocal();
   renderKamarContent();
   showToast('Kamar dihapus', 'success');
