@@ -1245,7 +1245,9 @@ function saveLocal() {
     darkMode: state.darkMode,
     cateringData: state.cateringData,
     sppData: state.sppData,
-    settings: state.settings
+    settings: state.settings,
+    kelasList: kelasList,
+    kamarList: kamarList
   }));
 }
 
@@ -1260,6 +1262,9 @@ function loadLocal() {
       if (d.cateringData) state.cateringData = d.cateringData;
       if (d.sppData) state.sppData = d.sppData;
       if (d.settings) state.settings = { ...state.settings, ...d.settings };
+      // Restore daftar kelas & kamar yang sudah dikustomisasi
+      if (d.kelasList && d.kelasList.length) kelasList = d.kelasList;
+      if (d.kamarList && d.kamarList.length) kamarList = d.kamarList;
     }
   } catch(e) { localStorage.removeItem('df_state'); }
 }
@@ -1325,7 +1330,7 @@ function demoAction(action, data) {
         state.cateringData.push(newItem);
       } else {
         const idx = state.cateringData.findIndex(x => x.id === data.item.id);
-        if (idx !== -1) state.cateringData[idx] = data.item;
+        if (idx !== -1) state.cateringData[idx] = { ...state.cateringData[idx], ...data.item };
       }
       saveLocal(); return { success: true };
     case 'deleteCatering':
@@ -1337,7 +1342,7 @@ function demoAction(action, data) {
         state.sppData.push(newItem);
       } else {
         const idx = state.sppData.findIndex(x => x.id === data.item.id);
-        if (idx !== -1) state.sppData[idx] = data.item;
+        if (idx !== -1) state.sppData[idx] = { ...state.sppData[idx], ...data.item };
       }
       saveLocal(); return { success: true };
     case 'deleteSpp':
@@ -1761,6 +1766,17 @@ function renderModalForm(type, data) {
   </div>`;
 
   document.getElementById('modal-body').innerHTML = html;
+
+  // Set nilai select SETELAH innerHTML di-set
+  // (setAttribute 'selected' tidak reliable, harus set .value via JS)
+  if (type === 'catering' && data?.kamar) {
+    const selKamar = document.getElementById('f-kamar');
+    if (selKamar) selKamar.value = data.kamar;
+  }
+  if (type === 'spp' && data?.kelas) {
+    const selKelas = document.getElementById('f-kelas');
+    if (selKelas) selKelas.value = data.kelas;
+  }
 }
 
 function toggleMonth(btn, idx) {
@@ -1790,9 +1806,11 @@ async function saveModal() {
   const { type, mode, editId } = state.modal;
   if (!type) return;
 
-  const nama = document.getElementById('f-nama')?.value?.trim();
-  const bin = document.getElementById('f-bin')?.value?.trim();
-  if (!nama || !bin) { showToast('Nama dan Bin/Binti harus diisi', 'error'); return; }
+  const namaRaw = document.getElementById('f-nama')?.value?.trim();
+  const binRaw = document.getElementById('f-bin')?.value?.trim();
+  const nama = namaRaw;  // akan di-capitalize di bawah per jenis
+  const bin = binRaw;
+  if (!namaRaw || !binRaw) { showToast('Nama dan Bin/Binti harus diisi', 'error'); return; }
 
   const monthBtns = document.querySelectorAll('.month-toggle-btn');
   const months = Array.from(monthBtns).map(b => b.classList.contains('checked'));
@@ -1800,13 +1818,13 @@ async function saveModal() {
   let item;
   if (type === 'catering') {
     const kamar = document.getElementById('f-kamar')?.value || '';
-    const alamat = document.getElementById('f-alamat')?.value?.trim() || '';
-    item = { id: editId || null, gender: catCurrentTab, nama, bin, kamar, alamat, months };
+    const alamat = toSentenceCase(document.getElementById('f-alamat')?.value || '');
+    item = { id: editId || null, gender: catCurrentTab, nama: toTitleCase(nama), bin: toTitleCase(bin), kamar, alamat, months };
   } else {
     const kelas = document.getElementById('f-kelas')?.value || '';
     const tahunAjaran = document.getElementById('f-tahun')?.value?.trim();
-    const alamatSpp = document.getElementById('f-alamat-spp')?.value?.trim() || '';
-    item = { id: editId || null, gender: sppCurrentTab, nama, bin, kelas, tahunAjaran, alamat: alamatSpp, months };
+    const alamatSpp = toSentenceCase(document.getElementById('f-alamat-spp')?.value || '');
+    item = { id: editId || null, gender: sppCurrentTab, nama: toTitleCase(nama), bin: toTitleCase(bin), kelas, tahunAjaran, alamat: alamatSpp, months };
   }
 
   document.getElementById('btn-save-text').innerHTML = '<span class="loading-spinner"></span>';
@@ -2094,6 +2112,22 @@ function showToast(msg, type = '') {
 function formatRp(num) {
   if (!num) return '0';
   return parseInt(num).toLocaleString('id-ID');
+}
+
+// Kapitalisasi huruf awal setiap kata
+function toTitleCase(str) {
+  if (!str) return '';
+  return str.trim().replace(/\s+/g, ' ')
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+// Kapitalisasi hanya huruf pertama kalimat
+function toSentenceCase(str) {
+  if (!str) return '';
+  const s = str.trim().replace(/\s+/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 // ==========================================
