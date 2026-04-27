@@ -2301,6 +2301,7 @@ function updateProfileUI() {
 // KELAS & KAMAR MANAGEMENT
 // ==========================================
 let kelasList = ['Awaliyah A','Awaliyah B','Awaliyah C','1 Wushto A','1 Wustho B','1 Wustho C','2 Wustho A','2 Wustho B','2 Wushto C','3 Wustho A','3 Wustho B','3 Wushto C','1 Ulya A','1 Ulya B','1 Ulya C','2 Ulya A','2 Ulya B','2 Ulya C','3 Ulya A','3 Ulya B','3 Ulya C'];
+
 let kamarList = ['Kamar 01','Kamar 02','Kamar 03','Kamar 04','Kamar 05'];
 
 function renderKelasContent() {
@@ -2567,101 +2568,174 @@ function renderBuktiCard() {
   if (!s) return;
 
   const now = new Date();
-  const tgl = now.toLocaleDateString('id-ID', { day:'numeric', month:'long', year:'numeric' });
+  // Waktu cetak lengkap dengan jam
+  const tglCetak = now.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const jamCetak = now.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
   const noRef = 'DF-' + (s.jenisData === 'spp' ? 'SPP' : 'CAT') + '-' + String(s.id).slice(-6).toUpperCase();
   const tarif = s.jenisData === 'spp'
     ? (state.settings.tarifSpp || 0)
     : (state.settings.tarifCatering || 0);
 
   const months = s.months || Array(12).fill(false);
-  const color = AVATAR_COLORS_B[0];
   const binLabel = s.gender === 'santri' ? 'bin' : 'binti';
   const dipilihDanLunas = bulanFilterState.filter((on, i) => on && months[i]).length;
+  const dipilihBelum    = bulanFilterState.filter((on, i) => on && !months[i]).length;
   const totalBayar = dipilihDanLunas * tarif;
   const infoLabel = s.jenisData === 'spp' ? 'Kelas' : 'Kamar';
   const infoVal   = s.jenisData === 'spp' ? (s.kelas||'-') : (s.kamar||'-');
   const ta        = s.jenisData === 'spp' ? (s.tahunAjaran || state.settings.tahunAjaran) : '';
 
-  const bulanGrid = MONTHS_BUKTI.map((m, i) => {
-    if (!bulanFilterState[i]) return '';
-    const lunas = months[i];
-    return `<div style="text-align:center;padding:5px 2px;border-radius:6px;font-size:10px;font-weight:700;`
-      + `background:${lunas ? '#dcfce7' : '#fee2e2'};color:${lunas ? '#166534' : '#991b1b'}">${m}</div>`;
-  }).join('');
+  // Pisah bulan lunas & belum dari filter
+  const bulanLunasList  = [];
+  const bulanBelumList  = [];
+  bulanFilterState.forEach((on, i) => {
+    if (!on) return;
+    if (months[i]) bulanLunasList.push(MONTHS_BUKTI[i]);
+    else bulanBelumList.push(MONTHS_BUKTI[i]);
+  });
+
+  // Tanda perforasi (garis putus-putus seperti nota asli)
+  const perf = `<div style="border-top:2px dashed #e5e7eb;margin:10px 0;position:relative;">
+    <div style="position:absolute;top:-7px;left:-16px;width:14px;height:14px;background:#f3f4f6;border-radius:50%;"></div>
+    <div style="position:absolute;top:-7px;right:-16px;width:14px;height:14px;background:#f3f4f6;border-radius:50%;"></div>
+  </div>`;
 
   document.getElementById('bukti-card').innerHTML = `
-    <div style="background:white;border-radius:16px;overflow:hidden;font-family:Arial,sans-serif;">
-      <div style="background:linear-gradient(135deg,#1a56db,#1344b3);padding:16px;color:white;text-align:center;">
-        <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:8px;">
-          <div style="width:38px;height:38px;background:white;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <svg viewBox="0 0 56 56" width="26" height="26"><path d="M28 6L8 44h40L28 6z" fill="#1a56db"/><path d="M28 6L40 44H28V6z" fill="#f59e0b"/><ellipse cx="28" cy="41" rx="8" ry="5" fill="#10b981"/></svg>
+    <div style="background:white;border-radius:16px;overflow:hidden;font-family:'Courier New',Courier,monospace;box-shadow:0 4px 20px rgba(0,0,0,0.12);">
+
+      <!-- KOP NOTA -->
+      <div style="background:linear-gradient(135deg,#1a56db,#1344b3);padding:20px 16px 16px;color:white;text-align:center;">
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;">
+          <div style="width:44px;height:44px;background:white;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.2);">
+            <svg viewBox="0 0 56 56" width="30" height="30"><path d="M28 6L8 44h40L28 6z" fill="#1a56db"/><path d="M28 6L40 44H28V6z" fill="#f59e0b"/><ellipse cx="28" cy="41" rx="8" ry="5" fill="#10b981"/></svg>
           </div>
           <div style="text-align:left;">
-            <div style="font-size:11px;font-weight:800;line-height:1.3;">PONDOK PESANTREN</div>
-            <div style="font-size:13px;font-weight:800;">DARUL FALAH GAMBUT</div>
+            <div style="font-size:10px;font-weight:700;opacity:.85;letter-spacing:.5px;font-family:Arial,sans-serif;">PONDOK PESANTREN</div>
+            <div style="font-size:15px;font-weight:900;letter-spacing:.3px;font-family:Arial,sans-serif;">DARUL FALAH GAMBUT</div>
           </div>
         </div>
-        <div style="font-size:10px;opacity:.8;letter-spacing:.5px;">BUKTI PEMBAYARAN ${s.jenisData === 'spp' ? 'SPP' : 'CATERING'}</div>
+        <div style="font-size:9px;opacity:.75;letter-spacing:2px;font-family:Arial,sans-serif;">━━━ BUKTI PEMBAYARAN ${s.jenisData === 'spp' ? 'SPP' : 'CATERING'} ━━━</div>
       </div>
-      <div style="height:3px;background:linear-gradient(90deg,#f59e0b,#10b981,#1a56db);"></div>
-      <div style="padding:14px 16px;">
-        <div style="text-align:center;margin-bottom:12px;">
-          <span style="font-size:10px;font-weight:800;letter-spacing:1px;background:#f3f4f6;color:#6b7280;padding:4px 14px;border-radius:20px;">${noRef}</span>
+      <div style="height:4px;background:linear-gradient(90deg,#f59e0b,#10b981,#3b82f6,#1a56db);"></div>
+
+      <!-- BODY NOTA -->
+      <div style="padding:16px;background:white;">
+
+        <!-- No. Nota & Waktu cetak -->
+        <div style="text-align:center;margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:900;letter-spacing:1.5px;background:#1a56db;color:white;padding:5px 16px;border-radius:20px;display:inline-block;">${noRef}</div>
+          <div style="font-size:10px;color:#9ca3af;margin-top:5px;font-family:Arial,sans-serif;">Dicetak: ${tglCetak}, ${jamCetak}</div>
         </div>
-        <div style="background:#f8faff;border:1.5px solid #e0e7ff;border-radius:12px;padding:12px;margin-bottom:12px;">
-          <div style="display:flex;gap:10px;align-items:center;">
-            <div style="width:44px;height:44px;border-radius:10px;background:${color};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:white;">${(s.nama||'?').charAt(0).toUpperCase()}</div>
-            <div>
-              <div style="font-size:14px;font-weight:800;color:#111827;">${s.nama||''}</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:2px;">${binLabel} ${s.bin||''}</div>
-              <div style="font-size:11px;color:#6b7280;">${infoLabel}: ${infoVal}${ta ? ' · TA: '+ta : ''}${s.alamat ? ' · '+s.alamat : ''}</div>
-            </div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
-          <div style="background:#f9fafb;border-radius:8px;padding:8px 10px;">
-            <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;">Jenis</div>
-            <div style="font-size:13px;font-weight:700;color:#111827;">${s.jenisData === 'spp' ? 'SPP' : 'Catering'}</div>
-          </div>
-          <div style="background:#f9fafb;border-radius:8px;padding:8px 10px;">
-            <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;">Tarif/Bulan</div>
-            <div style="font-size:13px;font-weight:700;color:#111827;">Rp ${formatRp(tarif)}</div>
-          </div>
-          <div style="background:#f9fafb;border-radius:8px;padding:8px 10px;">
-            <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;">Bulan Lunas</div>
-            <div style="font-size:13px;font-weight:700;color:#059669;">${dipilihDanLunas} bulan</div>
-          </div>
-          <div style="background:#f9fafb;border-radius:8px;padding:8px 10px;">
-            <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px;">Dicatat oleh</div>
-            <div style="font-size:13px;font-weight:700;color:#111827;">${state.user ? state.user.name : 'Admin'}</div>
-          </div>
-        </div>
+
+        ${perf}
+
+        <!-- Data Santri -->
         <div style="margin-bottom:12px;">
-          <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;">Status Pembayaran Bulanan</div>
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;">${bulanGrid || '<div style="grid-column:span 6;text-align:center;font-size:11px;color:#9ca3af;padding:8px;">Pilih bulan di atas</div>'}</div>
+          <div style="font-size:9px;font-weight:700;color:#9ca3af;letter-spacing:1px;margin-bottom:6px;font-family:Arial,sans-serif;">DATA SANTRI</div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:Arial,sans-serif;">
+            <tr><td style="color:#6b7280;padding:2px 0;width:90px;">Nama</td><td style="color:#111827;font-weight:700;">: ${s.nama||''}</td></tr>
+            <tr><td style="color:#6b7280;padding:2px 0;">${binLabel.charAt(0).toUpperCase()+binLabel.slice(1)}</td><td style="color:#111827;font-weight:600;">: ${s.bin||''}</td></tr>
+            <tr><td style="color:#6b7280;padding:2px 0;">${infoLabel}</td><td style="color:#111827;font-weight:600;">: ${infoVal}</td></tr>
+            ${ta ? `<tr><td style="color:#6b7280;padding:2px 0;">Tahun Ajaran</td><td style="color:#111827;font-weight:600;">: ${ta}</td></tr>` : ''}
+            ${s.alamat ? `<tr><td style="color:#6b7280;padding:2px 0;">Alamat</td><td style="color:#111827;font-weight:600;">: ${s.alamat}</td></tr>` : ''}
+          </table>
         </div>
-        <div style="background:linear-gradient(135deg,#1a56db,#1344b3);border-radius:10px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div>
-            <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.8);">TOTAL TERBAYAR</div>
-            <div style="font-size:20px;font-weight:800;color:white;">Rp ${formatRp(totalBayar)}</div>
+
+        ${perf}
+
+        <!-- Rincian Pembayaran -->
+        <div style="margin-bottom:12px;">
+          <div style="font-size:9px;font-weight:700;color:#9ca3af;letter-spacing:1px;margin-bottom:8px;font-family:Arial,sans-serif;">RINCIAN PEMBAYARAN</div>
+
+          <!-- Bulan lunas -->
+          ${bulanLunasList.length > 0 ? `
+          <div style="margin-bottom:8px;">
+            <div style="font-size:10px;color:#059669;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">✓ LUNAS (${bulanLunasList.length} bulan)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+              ${bulanLunasList.map(b => `<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;font-family:Arial,sans-serif;">${b}</span>`).join('')}
+            </div>
+          </div>` : ''}
+
+          <!-- Bulan belum -->
+          ${bulanBelumList.length > 0 ? `
+          <div style="margin-bottom:8px;">
+            <div style="font-size:10px;color:#dc2626;font-weight:700;font-family:Arial,sans-serif;margin-bottom:4px;">✗ BELUM BAYAR (${bulanBelumList.length} bulan)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+              ${bulanBelumList.map(b => `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;font-family:Arial,sans-serif;">${b}</span>`).join('')}
+            </div>
+          </div>` : ''}
+
+          <!-- Baris tarif -->
+          <div style="border-top:1px solid #f3f4f6;margin-top:8px;padding-top:8px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;font-family:Arial,sans-serif;color:#6b7280;margin-bottom:3px;">
+              <span>Tarif per bulan</span><span>Rp ${formatRp(tarif)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;font-family:Arial,sans-serif;color:#6b7280;margin-bottom:3px;">
+              <span>Jumlah bulan lunas</span><span>${dipilihDanLunas} bulan</span>
+            </div>
+            ${dipilihBelum > 0 ? `<div style="display:flex;justify-content:space-between;font-size:11px;font-family:Arial,sans-serif;color:#dc2626;margin-bottom:3px;">
+              <span>Sisa belum bayar</span><span>${dipilihBelum} bulan</span>
+            </div>` : ''}
           </div>
-          <div style="text-align:right;">
-            <div style="font-size:10px;color:rgba(255,255,255,.7);">${dipilihDanLunas} × Rp ${formatRp(tarif)}</div>
+        </div>
+
+        <!-- Total box seperti nota kasir -->
+        <div style="background:#111827;border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed rgba(255,255,255,.2);padding-bottom:8px;margin-bottom:8px;">
+            <span style="font-size:10px;color:rgba(255,255,255,.6);font-family:Arial,sans-serif;letter-spacing:.5px;">TOTAL TERBAYAR</span>
+            <span style="font-size:10px;color:rgba(255,255,255,.6);font-family:Arial,sans-serif;">${dipilihDanLunas} × Rp ${formatRp(tarif)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:22px;font-weight:900;color:white;font-family:Arial,sans-serif;">Rp ${formatRp(totalBayar)}</span>
+            ${dipilihBelum > 0
+              ? `<span style="font-size:10px;background:#ef4444;color:white;padding:4px 8px;border-radius:6px;font-family:Arial,sans-serif;font-weight:700;">Belum Lunas</span>`
+              : `<span style="font-size:10px;background:#10b981;color:white;padding:4px 8px;border-radius:6px;font-family:Arial,sans-serif;font-weight:700;">✓ Lunas</span>`
+            }
           </div>
         </div>
-        <div style="background:#f9fafb;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-radius:8px;border:1px solid #e5e7eb;margin-bottom:10px;">
-          <div style="font-size:10px;color:#9ca3af;font-weight:600;">${tgl}</div>
-          <div style="font-size:10px;font-weight:700;color:#059669;">✓ Data Terverifikasi</div>
+
+        ${perf}
+
+        <!-- Info cetak -->
+        <div style="font-family:Arial,sans-serif;margin-bottom:12px;">
+          <table style="width:100%;font-size:10px;border-collapse:collapse;">
+            <tr>
+              <td style="color:#9ca3af;padding:2px 0;width:80px;">Dicatat oleh</td>
+              <td style="color:#374151;font-weight:700;">: ${state.user ? state.user.name : 'Admin'}</td>
+            </tr>
+            <tr>
+              <td style="color:#9ca3af;padding:2px 0;">Waktu cetak</td>
+              <td style="color:#374151;font-weight:700;">: ${tglCetak}</td>
+            </tr>
+            <tr>
+              <td style="color:#9ca3af;padding:2px 0;"></td>
+              <td style="color:#374151;font-weight:700;">&nbsp;&nbsp;${jamCetak} WIB</td>
+            </tr>
+            <tr>
+              <td style="color:#9ca3af;padding:2px 0;">No. Referensi</td>
+              <td style="color:#1a56db;font-weight:800;">: ${noRef}</td>
+            </tr>
+          </table>
         </div>
-        <!-- QR CODE VERIFIKASI -->
-        <div style="border:1.5px dashed #d1d5db;border-radius:10px;padding:10px;display:flex;align-items:center;gap:10px;">
-          <div id="qr-container-bukti" style="width:72px;height:72px;flex-shrink:0;"></div>
-          <div style="flex:1;">
-            <div style="font-size:10px;font-weight:800;color:#374151;margin-bottom:2px;">SCAN UNTUK VERIFIKASI</div>
-            <div style="font-size:9px;color:#6b7280;line-height:1.4;">Scan QR ini untuk memverifikasi keaslian bukti pembayaran langsung dari data resmi pesantren.</div>
-            <div style="font-size:9px;font-weight:700;color:#1a56db;margin-top:3px;word-break:break-all;" id="qr-url-display"></div>
+
+        ${perf}
+
+        <!-- QR Code ONLY — no URL text -->
+        <div style="display:flex;align-items:center;gap:12px;padding:10px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;">
+          <div id="qr-container-bukti" style="width:72px;height:72px;flex-shrink:0;border-radius:6px;overflow:hidden;"></div>
+          <div style="flex:1;font-family:Arial,sans-serif;">
+            <div style="font-size:10px;font-weight:800;color:#374151;margin-bottom:3px;">SCAN UNTUK VERIFIKASI</div>
+            <div style="font-size:9px;color:#6b7280;line-height:1.5;">Scan QR ini untuk memverifikasi keaslian bukti. Data ditampilkan langsung dari sistem resmi pesantren.</div>
+            <div style="font-size:9px;color:#9ca3af;margin-top:4px;">Ref: <strong style="color:#1a56db;">${noRef}</strong></div>
           </div>
         </div>
+
+        <!-- Terima kasih -->
+        <div style="text-align:center;margin-top:12px;font-family:Arial,sans-serif;">
+          <div style="font-size:10px;color:#9ca3af;">— Terima kasih atas kepercayaan Anda —</div>
+          <div style="font-size:9px;color:#d1d5db;margin-top:2px;">PP. Darul Falah Gambut</div>
+        </div>
+
       </div>
     </div>`;
 
@@ -2702,11 +2776,9 @@ function generateQRForBukti() {
   const s = buktiSelectedSantri;
   if (!s) return;
   const container = document.getElementById('qr-container-bukti');
-  const urlDisplay = document.getElementById('qr-url-display');
   if (!container) return;
 
   const url = buildVerifURL(s);
-  if (urlDisplay) urlDisplay.textContent = url.length > 60 ? url.slice(0,57)+'...' : url;
 
   // Load QRCode.js on-demand
   if (typeof QRCode === 'undefined') {
@@ -2797,37 +2869,198 @@ function kirimWA() {
 function downloadBuktiPDF() {
   const s = buktiSelectedSantri;
   if (!s) return;
-  const cardHTML = document.getElementById('bukti-card') ? document.getElementById('bukti-card').innerHTML : '';
-  if (!cardHTML) { showToast('Generate bukti dulu', 'error'); return; }
-  const verifyURL = buildVerifURL(s);
+  if (!s.nama) { showToast('Pilih santri dulu', 'error'); return; }
 
-  const w = window.open('', '_blank', 'width=420,height=700');
+  const verifyURL = buildVerifURL(s);
+  const now = new Date();
+  const tglCetak = now.toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const jamCetak = now.toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit' });
+  const noRef = 'DF-' + (s.jenisData === 'spp' ? 'SPP' : 'CAT') + '-' + String(s.id).slice(-6).toUpperCase();
+  const tarif = s.jenisData === 'spp' ? (state.settings.tarifSpp||0) : (state.settings.tarifCatering||0);
+  const months = s.months || Array(12).fill(false);
+  const MNTH = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const binLabel = s.gender === 'santri' ? 'bin' : 'binti';
+  const infoLabel = s.jenisData === 'spp' ? 'Kelas' : 'Kamar';
+  const infoVal = s.jenisData === 'spp' ? (s.kelas||'-') : (s.kamar||'-');
+  const ta = s.jenisData === 'spp' ? (s.tahunAjaran || state.settings.tahunAjaran) : '';
+
+  const dipilihLunas = bulanFilterState.filter((on,i) => on && months[i]);
+  const dipilihBelum = bulanFilterState.filter((on,i) => on && !months[i]);
+  const totalBayar = dipilihLunas.length * tarif;
+
+  const lunasChips = bulanFilterState.map((on,i) => on && months[i]
+    ? `<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;margin:2px;display:inline-block;">${MNTH[i]}</span>` : ''
+  ).join('');
+  const belumChips = bulanFilterState.map((on,i) => on && !months[i]
+    ? `<span style="background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;margin:2px;display:inline-block;">${MNTH[i]}</span>` : ''
+  ).join('');
+  const perf = `<div style="border-top:2px dashed #e5e7eb;margin:10px -16px;position:relative;"></div>`;
+
+  const w = window.open('', '_blank', 'width=460,height=800');
   if (!w) { showToast('Izinkan pop-up di browser Anda', 'error'); return; }
   w.document.write(`<!DOCTYPE html><html><head>
-    <title>Bukti Pembayaran - ${s.nama}</title>
+    <title>Bukti Pembayaran — ${s.nama}</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <style>
-      body{margin:0;padding:16px;background:#f3f4f6;font-family:Arial,sans-serif;}
-      .wrap{max-width:380px;margin:0 auto;}
-      .no-print{margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;}
-      @media print{body{background:white;padding:0;}.no-print{display:none;}@page{size:A6 portrait;margin:8mm;}}
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{background:#f3f4f6;padding:16px;font-family:Arial,sans-serif;}
+      .wrap{max-width:360px;margin:0 auto;}
+      .no-print{margin-bottom:16px;display:flex;gap:8px;}
+      .nota{background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.1);}
+      .kop{background:linear-gradient(135deg,#1a56db,#1344b3);padding:20px 16px 16px;text-align:center;color:white;}
+      .kop-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px;}
+      .logo{width:44px;height:44px;background:white;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+      .body{padding:16px;}
+      .ref{text-align:center;margin-bottom:14px;}
+      .ref-badge{background:#1a56db;color:white;font-size:11px;font-weight:900;letter-spacing:1.5px;padding:5px 16px;border-radius:20px;display:inline-block;}
+      .cetak-time{font-size:10px;color:#9ca3af;margin-top:5px;}
+      .perf{border-top:2px dashed #e5e7eb;margin:10px -16px;}
+      .section-label{font-size:9px;font-weight:700;color:#9ca3af;letter-spacing:1px;margin-bottom:6px;}
+      table.data td{font-size:11px;padding:2px 0;}
+      table.data td:first-child{color:#6b7280;width:90px;}
+      table.data td:last-child{color:#111827;font-weight:700;}
+      .total-box{background:#111827;border-radius:10px;padding:14px 16px;margin-bottom:12px;}
+      .total-top{display:flex;justify-content:space-between;border-bottom:1px dashed rgba(255,255,255,.2);padding-bottom:8px;margin-bottom:8px;font-size:10px;color:rgba(255,255,255,.6);}
+      .total-bottom{display:flex;justify-content:space-between;align-items:center;}
+      .total-amount{font-size:22px;font-weight:900;color:white;}
+      .badge-lunas{background:#10b981;color:white;font-size:10px;font-weight:700;padding:4px 8px;border-radius:6px;}
+      .badge-belum{background:#ef4444;color:white;font-size:10px;font-weight:700;padding:4px 8px;border-radius:6px;}
+      .qr-box{display:flex;align-items:center;gap:12px;padding:10px;background:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;}
+      .qr-text{flex:1;}
+      .qr-title{font-size:10px;font-weight:800;color:#374151;margin-bottom:3px;}
+      .qr-desc{font-size:9px;color:#6b7280;line-height:1.5;}
+      .qr-ref{font-size:9px;color:#9ca3af;margin-top:4px;}
+      .thanks{text-align:center;margin-top:12px;font-size:10px;color:#9ca3af;}
+      @media print{
+        body{background:white;padding:0;}
+        .no-print{display:none !important;}
+        .wrap{max-width:100%;}
+        @page{size:80mm auto;margin:4mm;}
+      }
     </style>
   </head><body>
     <div class="no-print">
-      <button onclick="window.print()" style="padding:10px 18px;background:#1a56db;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🖨️ Print / Save PDF</button>
+      <button onclick="doQRthenPrint()" style="padding:10px 18px;background:#1a56db;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🖨️ Print / Save PDF</button>
       <button onclick="window.close()" style="padding:10px 14px;background:#6b7280;color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer">Tutup</button>
     </div>
-    <p style="font-size:11px;color:#9ca3af;margin-bottom:12px;" class="no-print">💡 Pilih <b>Save as PDF</b> sebagai printer untuk download PDF</p>
-    <div class="wrap">${cardHTML}</div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
-    <script>
+    <p style="font-size:11px;color:#9ca3af;margin-bottom:12px;" class="no-print">💡 Pilih <b>Save as PDF</b> lalu pilih ukuran <b>A6</b> atau <b>Custom</b> 80mm</p>
+    <div class="wrap">
+      <div class="nota">
+        <!-- KOP -->
+        <div class="kop">
+          <div class="kop-row">
+            <div class="logo">
+              <svg viewBox="0 0 56 56" width="30" height="30"><path d="M28 6L8 44h40L28 6z" fill="#1a56db"/><path d="M28 6L40 44H28V6z" fill="#f59e0b"/><ellipse cx="28" cy="41" rx="8" ry="5" fill="#10b981"/></svg>
+            </div>
+            <div style="text-align:left;">
+              <div style="font-size:10px;opacity:.85;letter-spacing:.5px;">PONDOK PESANTREN</div>
+              <div style="font-size:15px;font-weight:900;letter-spacing:.3px;">DARUL FALAH GAMBUT</div>
+            </div>
+          </div>
+          <div style="font-size:9px;opacity:.75;letter-spacing:2px;">━━━ BUKTI PEMBAYARAN ${s.jenisData === 'spp' ? 'SPP' : 'CATERING'} ━━━</div>
+        </div>
+        <div style="height:4px;background:linear-gradient(90deg,#f59e0b,#10b981,#3b82f6,#1a56db);"></div>
+
+        <div class="body">
+          <!-- Ref & waktu -->
+          <div class="ref">
+            <div class="ref-badge">${noRef}</div>
+            <div class="cetak-time">Dicetak: ${tglCetak}, ${jamCetak}</div>
+          </div>
+          <div class="perf"></div>
+
+          <!-- Data Santri -->
+          <div style="margin-bottom:12px;">
+            <div class="section-label">DATA SANTRI</div>
+            <table class="data" style="width:100%;border-collapse:collapse;">
+              <tr><td>Nama</td><td>: <strong>${s.nama||''}</strong></td></tr>
+              <tr><td>${binLabel.charAt(0).toUpperCase()+binLabel.slice(1)}</td><td>: ${s.bin||''}</td></tr>
+              <tr><td>${infoLabel}</td><td>: ${infoVal}</td></tr>
+              ${ta ? `<tr><td>Tahun Ajaran</td><td>: ${ta}</td></tr>` : ''}
+              ${s.alamat ? `<tr><td>Alamat</td><td>: ${s.alamat}</td></tr>` : ''}
+            </table>
+          </div>
+          <div class="perf"></div>
+
+          <!-- Rincian -->
+          <div style="margin-bottom:12px;">
+            <div class="section-label">RINCIAN PEMBAYARAN</div>
+            ${dipilihLunas.length > 0 ? `
+            <div style="margin-bottom:8px;">
+              <div style="font-size:10px;color:#059669;font-weight:700;margin-bottom:4px;">✓ LUNAS (${dipilihLunas.length} bulan)</div>
+              <div>${lunasChips}</div>
+            </div>` : ''}
+            ${dipilihBelum.length > 0 ? `
+            <div style="margin-bottom:8px;">
+              <div style="font-size:10px;color:#dc2626;font-weight:700;margin-bottom:4px;">✗ BELUM BAYAR (${dipilihBelum.length} bulan)</div>
+              <div>${belumChips}</div>
+            </div>` : ''}
+            <div style="border-top:1px solid #f3f4f6;padding-top:8px;margin-top:4px;">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7280;margin-bottom:3px;"><span>Tarif per bulan</span><span>Rp ${formatRp(tarif)}</span></div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7280;"><span>Jumlah bulan lunas</span><span>${dipilihLunas.length} bulan</span></div>
+            </div>
+          </div>
+
+          <!-- Total -->
+          <div class="total-box">
+            <div class="total-top">
+              <span>TOTAL TERBAYAR</span>
+              <span>${dipilihLunas.length} × Rp ${formatRp(tarif)}</span>
+            </div>
+            <div class="total-bottom">
+              <span class="total-amount">Rp ${formatRp(totalBayar)}</span>
+              ${dipilihBelum.length > 0
+                ? '<span class="badge-belum">Belum Lunas</span>'
+                : '<span class="badge-lunas">✓ Lunas</span>'}
+            </div>
+          </div>
+          <div class="perf"></div>
+
+          <!-- Info cetak -->
+          <div style="margin-bottom:12px;">
+            <table class="data" style="width:100%;border-collapse:collapse;">
+              <tr><td>Dicatat oleh</td><td>: <strong>${state.user ? state.user.name : 'Admin'}</strong></td></tr>
+              <tr><td>Waktu cetak</td><td>: ${tglCetak}</td></tr>
+              <tr><td></td><td>&nbsp;&nbsp;${jamCetak} WIB</td></tr>
+              <tr><td>No. Referensi</td><td>: <strong style="color:#1a56db;">${noRef}</strong></td></tr>
+            </table>
+          </div>
+          <div class="perf"></div>
+
+          <!-- QR -->
+          <div class="qr-box">
+            <div id="qr-pdf" style="width:72px;height:72px;flex-shrink:0;border-radius:6px;overflow:hidden;background:#fff;"></div>
+            <div class="qr-text">
+              <div class="qr-title">SCAN UNTUK VERIFIKASI</div>
+              <div class="qr-desc">Scan QR ini untuk memverifikasi keaslian bukti dari data resmi pesantren.</div>
+              <div class="qr-ref">Ref: <strong style="color:#1a56db;">${noRef}</strong></div>
+            </div>
+          </div>
+
+          <div class="thanks">— Terima kasih atas kepercayaan Anda —<br>
+            <span style="font-size:9px;color:#d1d5db;">PP. Darul Falah Gambut</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <scr\ipt src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/scr\ipt>
+    <scr\ipt>
+      var VERIFY_URL = decodeURIComponent('${encodeURIComponent(verifyURL)}');
+      function doQRthenPrint() {
+        var el = document.getElementById('qr-pdf');
+        if (el && el.children.length === 0 && typeof QRCode !== 'undefined') {
+          try { new QRCode(el, { text:VERIFY_URL, width:72, height:72, colorDark:'#111827', colorLight:'#ffffff' }); } catch(e){}
+          setTimeout(function(){ window.print(); }, 400);
+        } else { window.print(); }
+      }
       window.onload = function() {
-        var c = document.getElementById('qr-container-bukti');
-        if (c && typeof QRCode !== 'undefined') {
-          try { new QRCode(c, { text: '${verifyURL.replace(/'/g,"\'")}', width:72, height:72, colorDark:'#111827', colorLight:'#ffffff' }); } catch(e){}
+        var el = document.getElementById('qr-pdf');
+        if (el && typeof QRCode !== 'undefined') {
+          try { new QRCode(el, { text:VERIFY_URL, width:72, height:72, colorDark:'#111827', colorLight:'#ffffff' }); } catch(e){}
         }
       };
-    <\/script>
+    <\/scr\ipt>
   </body></html>`);
   w.document.close();
 }
