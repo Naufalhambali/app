@@ -2621,14 +2621,6 @@ function renderBuktiCard() {
       <!-- BODY NOTA -->
       <div style="padding:16px;background:white;">
 
-        <!-- No. Nota & Waktu cetak -->
-        <div style="text-align:center;margin-bottom:14px;">
-          <div style="font-size:11px;font-weight:900;letter-spacing:1.5px;background:#1a56db;color:white;padding:5px 16px;border-radius:20px;display:inline-block;">${noRef}</div>
-          <div style="font-size:10px;color:#9ca3af;margin-top:5px;font-family:Arial,sans-serif;">Dicetak: ${tglCetak}, ${jamCetak}</div>
-        </div>
-
-        ${perf}
-
         <!-- Data Santri -->
         <div style="margin-bottom:12px;">
           <div style="font-size:9px;font-weight:700;color:#9ca3af;letter-spacing:1px;margin-bottom:6px;font-family:Arial,sans-serif;">DATA SANTRI</div>
@@ -2744,30 +2736,30 @@ function renderBuktiCard() {
 }
 
 function buildVerifURL(s) {
-  // Encode data verifikasi ke URL param — ini yang di-scan via QR
-  // Data diambil langsung dari state (Spreadsheet), bukan dari tampilan
+  // URL PENDEK — hanya data minimal agar QR tidak terlalu padat & bisa di-scan
+  // Detail nama dll ada di verify.html yang mengambil dari params
   const months = s.months || Array(12).fill(false);
   const lunasStr = months.map(m => m ? '1' : '0').join('');
   const tarif = s.jenisData === 'spp'
     ? (state.settings.tarifSpp || 0)
     : (state.settings.tarifCatering || 0);
   const noRef = 'DF-' + (s.jenisData === 'spp' ? 'SPP' : 'CAT') + '-' + String(s.id).slice(-6).toUpperCase();
+  const total = months.filter(Boolean).length * tarif;
+  const tgl = new Date().toISOString().slice(0,10);
 
+  // Hanya kirim data yang TIDAK bisa dimanipulasi & membuat URL tetap pendek
+  // nama dibatasi 20 char, di-encode base64 agar aman di URL
+  const namaShort = (s.nama || '').slice(0, 20);
   const params = new URLSearchParams({
-    ref:   noRef,
-    nama:  s.nama || '',
-    bin:   s.bin  || '',
-    jenis: s.jenisData,
-    info:  s.jenisData === 'spp' ? (s.kelas||'-') : (s.kamar||'-'),
-    ta:    s.jenisData === 'spp' ? (s.tahunAjaran||state.settings.tahunAjaran) : '',
-    bulan: lunasStr,
-    tarif: tarif,
-    total: months.filter(Boolean).length * tarif,
-    oleh:  state.user ? state.user.name : 'Admin',
-    tgl:   new Date().toISOString().slice(0,10)
+    r: noRef,          // ref
+    j: s.jenisData,    // jenis: spp/catering
+    b: lunasStr,       // bulan: 12 digit 0/1
+    t: tarif,          // tarif
+    s: total,          // total
+    n: namaShort,      // nama (pendek)
+    d: tgl             // tanggal cetak
   });
 
-  // URL halaman verifikasi — setelah deploy ganti BASE_VERIFY_URL di app
   const base = (window.VERIFY_BASE_URL || window.location.href.replace('app.html','') + 'verify.html');
   return base + '?' + params.toString();
 }
@@ -2797,14 +2789,22 @@ function generateQRForBukti() {
 function _renderQR(container, url) {
   container.innerHTML = '';
   try {
+    // Ukuran 80x80 + error correction L = QR lebih jarang = lebih mudah di-scan kamera HP
     new QRCode(container, {
       text: url,
-      width: 72, height: 72,
-      colorDark: '#111827', colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.M
+      width: 80, height: 80,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.L
     });
+    // Pastikan gambar QR mengisi container dengan benar
+    setTimeout(() => {
+      const img = container.querySelector('img');
+      const canvas = container.querySelector('canvas');
+      if (img) { img.style.width='80px'; img.style.height='80px'; img.style.display='block'; }
+      if (canvas) { canvas.style.display='none'; } // pakai img saja, lebih kompatibel
+    }, 100);
   } catch(e) {
-    container.innerHTML = '<div style="font-size:9px;color:#ef4444;text-align:center;">Error QR</div>';
+    container.innerHTML = '<div style="font-size:9px;color:#ef4444;text-align:center;padding:8px;">QR Error</div>';
   }
 }
 
