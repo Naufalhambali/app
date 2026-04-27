@@ -2736,8 +2736,6 @@ function renderBuktiCard() {
 }
 
 function buildVerifURL(s) {
-  // URL PENDEK — hanya data minimal agar QR tidak terlalu padat & bisa di-scan
-  // Detail nama dll ada di verify.html yang mengambil dari params
   const months = s.months || Array(12).fill(false);
   const lunasStr = months.map(m => m ? '1' : '0').join('');
   const tarif = s.jenisData === 'spp'
@@ -2745,19 +2743,21 @@ function buildVerifURL(s) {
     : (state.settings.tarifCatering || 0);
   const noRef = 'DF-' + (s.jenisData === 'spp' ? 'SPP' : 'CAT') + '-' + String(s.id).slice(-6).toUpperCase();
   const total = months.filter(Boolean).length * tarif;
-  const tgl = new Date().toISOString().slice(0,10);
+  const now = new Date();
+  // ym = tahun+bulan misal "202504" — beda tiap bulan → kode QR berbeda tiap bulan
+  const ym = now.getFullYear().toString() + String(now.getMonth()+1).padStart(2,'0');
+  const tgl = now.toISOString().slice(0,10);
+  const namaShort = (s.nama || '').slice(0, 18).replace(/\s+/g, '+');
 
-  // Hanya kirim data yang TIDAK bisa dimanipulasi & membuat URL tetap pendek
-  // nama dibatasi 20 char, di-encode base64 agar aman di URL
-  const namaShort = (s.nama || '').slice(0, 20);
   const params = new URLSearchParams({
-    r: noRef,          // ref
-    j: s.jenisData,    // jenis: spp/catering
-    b: lunasStr,       // bulan: 12 digit 0/1
-    t: tarif,          // tarif
-    s: total,          // total
-    n: namaShort,      // nama (pendek)
-    d: tgl             // tanggal cetak
+    r: noRef,
+    j: s.jenisData,
+    b: lunasStr,
+    t: tarif,
+    x: total,
+    n: namaShort,
+    d: tgl,
+    m: ym          // ← bulan+tahun cetak, beda tiap bulan
   });
 
   const base = (window.VERIFY_BASE_URL || window.location.href.replace('app.html','') + 'verify.html');
@@ -2771,41 +2771,27 @@ function generateQRForBukti() {
   if (!container) return;
 
   const url = buildVerifURL(s);
-
-  // Load QRCode.js on-demand
-  if (typeof QRCode === 'undefined') {
-    const scr = document.createElement('script');
-    scr.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    scr.onload = () => _renderQR(container, url);
-    scr.onerror = () => {
-      container.innerHTML = '<div style="font-size:9px;color:#9ca3af;text-align:center;padding:4px;">QR tidak tersedia</div>';
-    };
-    document.head.appendChild(scr);
-  } else {
-    _renderQR(container, url);
-  }
+  _renderQRImage(container, url, 90);
 }
 
-function _renderQR(container, url) {
+// Pakai Google Charts API — tidak butuh library eksternal, 100% reliable, hasil gambar bersih
+function _renderQRImage(container, url, size) {
   container.innerHTML = '';
-  try {
-    // Ukuran 80x80 + error correction L = QR lebih jarang = lebih mudah di-scan kamera HP
-    new QRCode(container, {
-      text: url,
-      width: 80, height: 80,
-      colorDark: '#000000', colorLight: '#ffffff',
-      correctLevel: QRCode.CorrectLevel.L
-    });
-    // Pastikan gambar QR mengisi container dengan benar
-    setTimeout(() => {
-      const img = container.querySelector('img');
-      const canvas = container.querySelector('canvas');
-      if (img) { img.style.width='80px'; img.style.height='80px'; img.style.display='block'; }
-      if (canvas) { canvas.style.display='none'; } // pakai img saja, lebih kompatibel
-    }, 100);
-  } catch(e) {
-    container.innerHTML = '<div style="font-size:9px;color:#ef4444;text-align:center;padding:8px;">QR Error</div>';
-  }
+  size = size || 90;
+  // Google Charts QR API: ukuran lebih besar = lebih mudah scan
+  const encoded = encodeURIComponent(url);
+  const src = `https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encoded}&choe=UTF-8&chld=L|1`;
+  const img = document.createElement('img');
+  img.src = src;
+  img.width = size;
+  img.height = size;
+  img.style.display = 'block';
+  img.style.borderRadius = '4px';
+  img.alt = 'QR Verifikasi';
+  img.onerror = () => {
+    container.innerHTML = '<div style="font-size:9px;color:#9ca3af;text-align:center;padding:8px;width:'+size+'px">QR tidak tersedia (offline)</div>';
+  };
+  container.appendChild(img);
 }
 
 function kirimWA() {
@@ -3044,22 +3030,23 @@ function downloadBuktiPDF() {
         </div>
       </div>
     </div>
-    <scr\ipt src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/scr\ipt>
     <scr\ipt>
       var VERIFY_URL = decodeURIComponent('${encodeURIComponent(verifyURL)}');
-      function doQRthenPrint() {
+      function renderQR() {
         var el = document.getElementById('qr-pdf');
-        if (el && el.children.length === 0 && typeof QRCode !== 'undefined') {
-          try { new QRCode(el, { text:VERIFY_URL, width:72, height:72, colorDark:'#111827', colorLight:'#ffffff' }); } catch(e){}
-          setTimeout(function(){ window.print(); }, 400);
-        } else { window.print(); }
+        if (!el) return;
+        var size = 100;
+        var src = 'https://chart.googleapis.com/chart?cht=qr&chs='+size+'x'+size+'&chl='+encodeURIComponent(VERIFY_URL)+'&choe=UTF-8&chld=L|1';
+        var img = document.createElement('img');
+        img.src = src; img.width = size; img.height = size;
+        img.style.display = 'block'; img.style.borderRadius = '4px';
+        el.appendChild(img);
       }
-      window.onload = function() {
-        var el = document.getElementById('qr-pdf');
-        if (el && typeof QRCode !== 'undefined') {
-          try { new QRCode(el, { text:VERIFY_URL, width:72, height:72, colorDark:'#111827', colorLight:'#ffffff' }); } catch(e){}
-        }
-      };
+      function doQRthenPrint() {
+        renderQR();
+        setTimeout(function(){ window.print(); }, 800);
+      }
+      window.onload = renderQR;
     <\/scr\ipt>
   </body></html>`);
   w.document.close();
