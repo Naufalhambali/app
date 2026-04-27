@@ -150,18 +150,30 @@ function render() {
   const params = new URLSearchParams(window.location.search);
   const out = document.getElementById('output');
 
-  // Cek apakah ada parameter verifikasi
-  const ref   = params.get('ref');
-  const nama  = params.get('nama');
-  const bin   = params.get('bin');
-  const jenis = params.get('jenis');
-  const info  = params.get('info');
-  const ta    = params.get('ta');
-  const bulan = params.get('bulan');
-  const tarif = parseInt(params.get('tarif')) || 0;
-  const total = parseInt(params.get('total')) || 0;
-  const oleh  = params.get('oleh');
-  const tgl   = params.get('tgl');
+  // Param pendek: r=ref, j=jenis, b=bulan, t=tarif, x=total, n=nama, d=tgl, m=bulanTahun
+  const ref   = params.get('r') || params.get('ref');
+  const jenis = params.get('j') || params.get('jenis');
+  const bulan = params.get('b') || params.get('bulan');
+  const tarif = parseInt(params.get('t') || params.get('tarif')) || 0;
+  const total = parseInt(params.get('x') || params.get('s') || params.get('total')) || 0;
+  const nama  = (params.get('n') || params.get('nama') || '').replace(/\+/g, ' ');
+  const tgl   = params.get('d') || params.get('tgl');
+  const ym    = params.get('m') || '';
+
+  // Param lama (fallback)
+  const bin   = params.get('bin')  || '';
+  const info  = params.get('info') || '-';
+  const ta    = params.get('ta')   || '';
+  const oleh  = params.get('oleh') || 'Admin';
+
+  // Format periode cetak dari ym (misal "202504" → "April 2025")
+  const BNAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  let periodeCetak = '';
+  if (ym && ym.length === 6) {
+    const th = ym.slice(0, 4);
+    const bl = parseInt(ym.slice(4, 6)) - 1;
+    if (bl >= 0 && bl < 12) periodeCetak = BNAMES[bl] + ' ' + th;
+  }
 
   if (!ref || !nama || !bulan) {
     out.innerHTML = `
